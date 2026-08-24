@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects — Board</title>
+<style>
+:root{
+  --canvas:#f4f4f5; --card:#ffffff; --ink:#18181b; --soft:#71717a; --line:#e4e4e7;
+  --backlog:#f4f4f5; --prog:#eff6ff; --review:#fafaf9; --done:#f0fdf4; --blocked:#fef2f2;
+  --dot-backlog:#a1a1aa; --dot-prog:#3b82f6; --dot-review:#d67708; --dot-done:#22c55e; --dot-blocked:#ef4444;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--canvas);color:var(--ink);font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+/* topbar */
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--line)}
+.logo{font-weight:700;font-size:15px;margin-right:6px}
+.search{flex:0 1 340px;display:flex;align-items:center;gap:8px;background:var(--canvas);border-radius:8px;padding:7px 12px;color:var(--soft)}
+.search input{border:0;background:none;outline:none;width:100%;font-size:13px}
+.spacer{flex:1}
+.btn{background:var(--ink);color:#fff;border:0;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer}
+.btn.ghost{background:none;color:var(--soft);border:1px solid var(--line)}
+.btn.ghost:hover{color:var(--ink)}
+.savehint{font-size:12px;color:var(--soft)}
+/* layout */
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:220px;background:#fff;border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+.side-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft);padding:8px 10px 4px}
+.nav{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;cursor:pointer;color:var(--ink);text-decoration:none;font-size:13.5px}
+.nav:hover{background:var(--canvas)}
+.board-area{flex:1;overflow-x:auto;padding:20px 22px}
+.columns{display:flex;gap:16px;align-items:flex-start;min-height:100%}
+.col{width:290px;flex-shrink:0;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 120px)}
+.col h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;padding:2px 4px}
+.col h3 .count{margin-left:auto;font-weight:400;color:var(--soft)}
+.col h3 .add{cursor:pointer;color:var(--soft);border:0;background:none;font-size:15px;line-height:1;padding:2px}
+.col h3 .add:hover{color:var(--ink)}
+.c-backlog{background:var(--backlog)} .c-prog{background:var(--prog)} .c-review{background:var(--review)}
+.c-done{background:var(--done)} .c-blocked{background:var(--blocked)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.d-backlog{background:var(--dot-backlog)}.d-prog{background:var(--dot-prog)}.d-review{background:var(--dot-review)}.d-done{background:var(--dot-done)}.d-blocked{background:var(--dot-blocked)}
+.cards{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:30px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 13px;cursor:grab;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card:hover{box-shadow:0 3px 8px rgba(0,0,0,.07)}
+.card.dragging{opacity:.45;transform:rotate(1.5deg)}
+.card .cid{font-size:11px;color:var(--soft);letter-spacing:.04em;display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.card .ctitle{font-weight:600;font-size:13.5px;line-height:1.35}
+.card .cdesc{font-size:12.5px;color:var(--soft);margin-top:4px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .cmeta{display:flex;align-items:center;justify-content:space-between;margin-top:9px;font-size:11.5px;color:var(--soft)}
+.card .due{background:var(--canvas);padding:2px 8px;border-radius:20px}
+.card .due.overdue{background:#fee2e2;color:#b91c1c}
+.tag{font-size:10.5px;padding:2px 7px;border-radius:5px;background:var(--canvas);border:1px solid var(--line);margin-left:auto}
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(24,24,27,.45);display:none;align-items:center;justify-content:center;z-index:50}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:14px;width:min(480px,92vw);padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal h4{font-size:15px;margin-bottom:14px}
+.modal label{font-size:11.5px;color:var(--soft);display:block;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.06em}
+.modal input[type=text],.modal textarea,.modal select{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;font-size:13.5px;outline:none}
+.modal textarea{min-height:70px;resize:vertical}
+.modal .row{display:flex;gap:10px}.modal .row>*{flex:1}
+.modal .actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+.modal .actions .del{margin-right:auto;background:none;border:0;color:#dc2626;cursor:pointer;font-size:13px}
+.dropzone{min-height:40px;border-radius:8px;border:2px dashed transparent}
+.col.over .dropzone{border-color:var(--dot-prog);background:rgba(59,130,246,.05)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="logo">◼ Projects</span>
+  <div class="search">🔍<input id="q" placeholder="Search cards…"></div>
+  <span class="spacer"></span>
+  <span class="savehint" id="savehint"></span>
+  <button class="btn ghost" onclick="exportMd()">Export .md</button>
+  <button class="btn ghost" onclick="connectFolder()" title="Save changes directly to the board file in your vault">Connect vault file</button>
+  <button class="btn" onclick="openNew('backlog')">+ New</button>
+</div>
+<div class="main">
+  <nav class="sidebar">
+    <div class="side-title">Views</div>
+    <a class="nav" onclick="render();return false">▦ All projects</a>
+    <div class="side-title" style="margin-top:10px">Projects</div>
+    <a class="nav">◆ Local Wiki v1</a><a class="nav">◆ TJC Caption QA</a><a class="nav">◆ Finances Bot</a><a class="nav">◆ $20k Plan</a><a class="nav">◆ Reminders</a>
+    <div style="flex:1"></div>
+    <div class="side-title" id="filestate">File: not connected (localStorage)</div>
+  </nav>
+  <div class="board-area"><div class="columns" id="columns"></div></div>
+</div>
+
+<div class="overlay" id="ov">
+  <div class="modal">
+    <h4 id="mtitle">Edit card</h4>
+    <label>Title</label><input type="text" id="f-title">
+    <label>Description</label><textarea id="f-desc"></textarea>
+    <div class="row">
+      <div><label>Status</label><select id="f-status">
+        <option value="backlog">Backlog</option><option value="prog">In Progress</option>
+        <option value="review">In Review</option><option value="done">Done</option><option value="blocked">Blocked</option></select></div>
+      <div><label>Due date</label><input type="date" id="f-due"></div>
+    </div>
+    <div class="row"><div><label>Project</label><input type="text" id="f-project"></div></div>
+    <div class="actions">
+      <button class="del" id="f-del" onclick="delCard()">Delete</button>
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="saveCard()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLS=[
+ {id:'backlog',name:'Backlog',cls:'c-backlog',dot:'d-backlog'},
+ {id:'prog',name:'In Progress',cls:'c-prog',dot:'d-prog'},
+ {id:'review',name:'In Review',cls:'c-review',dot:'d-review'},
+ {id:'done',name:'Done',cls:'c-done',dot:'d-done'},
+ {id:'blocked',name:'Blocked',cls:'c-blocked',dot:'d-blocked'}];
+
+let SEED = [
+ {id:'W1',status:'review',project:'Local Wiki v1',title:'Push engine + config to GitHub',desc:'Blocked on workflow scope token refresh (gh auth refresh -s workflow). Backup zip in iCloud.',due:'2026-09-01'},
+ {id:'W2',status:'prog',project:'Local Wiki v1',title:'Manual Obsidian/iPhone checklist',desc:'Plan Task 3 Step 4 — write manual-acceptance-checklist.md in config repo.',due:''},
+ {id:'T1',status:'done',project:'TJC Caption QA',title:'Nigel Reel 3 caption review',desc:'1 confirmed error (you→your @0:48). v1.3 pipeline shipped.',due:''},
+ {id:'F1',status:'blocked',project:'Finances Bot',title:'Firefly token + Pluggy credentials',desc:'Waiting for Bruno to set FIREFLY_TOKEN and bank credentials before weekly summary activates.',due:''},
+ {id:'P1',status:'prog',project:'$20k Plan',title:'Week 1: WhatsApp AI agent offer + demo',desc:'Define productized offer, build demo on RAG/bot stack. Report at ~/90day-plan-20k-usd.md',due:''},
+ {id:'P2',status:'backlog',project:'$20k Plan',title:'ME/Simples PJ + Wise Business setup',desc:'USD invoicing rails for US clients.',due:''},
+ {id:'R1',status:'backlog',project:'Reminders',title:'I shaved — due 2026-09-06',desc:'Repeats every 2 weeks.',due:'2026-09-06'},
+ {id:'R2',status:'backlog',project:'Reminders',title:'Carol hair dye — due 2026-09-13',desc:'Repeats every 3 weeks.',due:'2026-09-13'},
+ {id:'R3',status:'backlog',project:'Reminders',title:'Vaccines — due 2026-10-22',desc:'Me & Carol, repeats every 2 months.',due:'2026-10-22'},
+];
+
+let cards = JSON.parse(localStorage.getItem('board_cards')||'null') || SEED.map((c,i)=>({...c,updated:Date.now()}));
+let fh = null; // file handle
+let editing = null;
+
+function save(){localStorage.setItem('board_cards',JSON.stringify(cards));document.getElementById('savehint').textContent='Saved '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});if(fh)writeFile();}
+async function connectFolder(){
+ try{
+  [fh]=await window.showOpenFilePicker({types:[{description:'Markdown',accept:{'text/markdown':['.md']}}],startIn:'documents'});
+  await writeFile();document.getElementById('filestate').textContent='File: '+fh.name;
+ }catch(e){if(e.name!=='AbortError')alert('Browser needs Chrome/Edge for vault-file saving.\nChanges still saved locally + Export works anywhere.');}
+}
+async function writeFile(){
+ try{
+  const w=await fh.createWritable();
+  await w.write(toMd());await w.close();
+ }catch(e){}
+}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function ago(t){const m=Math.floor((Date.now()-t)/60000);if(m<1)return'now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
+function render(filter){
+ const q=(filter||'').toLowerCase();
+ document.getElementById('columns').innerHTML=COLS.map(c=>{
+  const list=cards.filter(x=>x.status===c.id&&(!q||(x.title+x.desc+x.project).toLowerCase().includes(q)));
+  return `<div class="col ${c.cls}" data-col="${c.id}">
+   <h3><span class="dot ${c.dot}"></span>${c.name}<span class="count">${list.length}</span><button class="add" onclick="openNew('${c.id}')" title="Add card">＋</button></h3>
+   <div class="cards">${list.map(cardHtml).join('')||'<div class="dropzone"></div>'}</div></div>`}).join('');
+ bindDnD();bindClicks();}
+function cardHtml(c){
+ const overdue=c.due&&c.due<'2026-08-24'&&c.status!=='done';
+ return `<div class="card" draggable="true" data-id="${c.id}">
+  <div class="cid"><span class="dot ${COLS.find(x=>x.id===c.status).dot}"></span>${c.id}${c.project?` · ${esc(c.project)}`:''}</div>
+  <div class="ctitle">${esc(c.title)}</div>
+  ${c.desc?`<div class="cdesc">${esc(c.desc)}</div>`:''}
+  <div class="cmeta"><span>Updated ${ago(c.updated)}</span>${c.due?`<span class="due${overdue?' overdue':''}">${c.due}</span>`:''}</div></div>`;
+}
+function bindDnD(){
+ let drag=null;
+ document.querySelectorAll('.card').forEach(el=>{
+  el.addEventListener('dragstart',()=>{drag=el.dataset.id;el.classList.add('dragging')});
+  el.addEventListener('dragend',()=>{el.classList.remove('dragging');document.querySelectorAll('.col').forEach(c=>c.classList.remove('over'))});
+ });
+ document.querySelectorAll('.col').forEach(col=>{
+  col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('over')});
+  col.addEventListener('dragleave',()=>col.classList.remove('over'));
+  col.addEventListener('drop',e=>{
+   e.preventDefault();col.classList.remove('over');
+   if(!drag)return;const c=cards.find(x=>x.id===drag);
+   if(c&&c.status!==col.dataset.col){c.status=col.dataset.col;c.updated=Date.now();save();render(document.getElementById('q').value);}
+   drag=null;});
+ });
+}
+function openNew(status){
+ editing=null;document.getElementById('mtitle').textContent='New card';
+ document.getElementById('f-title').value='';document.getElementById('f-desc').value='';
+ document.getElementById('f-status').value=status;document.getElementById('f-due').value='';
+ document.getElementById('f-project').value='';document.getElementById('f-del').style.display='none';
+ document.getElementById('ov').classList.add('open');F.title.focus();
+}
+const ov=document.getElementById('ov');
+const F={title:document.getElementById('f-title'),desc:document.getElementById('f-desc'),
+ status:document.getElementById('f-status'),due:document.getElementById('f-due'),project:document.getElementById('f-project')};
+function bindClicks(){document.querySelectorAll('.card').forEach(el=>el.addEventListener('click',()=>{
+ const c=cards.find(x=>x.id===el.dataset.id);if(!c)return;editing=c.id;
+ document.getElementById('mtitle').textContent='Edit '+c.id;
+ F.title.value=c.title;F.desc.value=c.desc||'';F.status.value=c.status;F.due.value=c.due||'';F.project.value=c.project||'';
+ document.getElementById('f-del').style.display='block';ov.classList.add('open');
+}));}
+function closeModal(){ov.classList.remove('open')}
+function saveCard(){
+ if(editing){const c=cards.find(x=>x.id===editing);Object.assign(c,{title:F.title.value,desc:F.desc.value,status:F.status.value,due:F.due.value,project:F.project.value,updated:Date.now()});}
+ else{cards.push({id:'C'+Math.random().toString(36).slice(2,5).toUpperCase(),title:F.title.value,desc:F.desc.value,status:F.status.value,due:F.due.value,project:F.project.value,updated:Date.now()});}
+ save();closeModal();render(document.getElementById('q').value);
+}
+function delCard(){cards=cards.filter(x=>x.id!==editing);save();closeModal();render()}
+function exportMd(){
+ const lines=['# Projects Board','','*Managed by board.html · last saved '+new Date().toISOString().slice(0,16)+'*',''];
+ COLS.forEach(c=>{lines.push('## '+c.name,'');
+  cards.filter(x=>x.status===c.id).forEach(x=>{
+   lines.push(`### [${x.id}] ${x.title}`,'',
+    x.project?`- Project: ${x.project}`:null,
+    x.desc?`- Notes: ${x.desc}`:null,
+    x.due?`- Due: ${x.due}`:null,'- Updated: '+new Date(x.updated).toISOString(),'').filter(l=>l!==null);
+ });});
+ const blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Projects Board.md';a.click();
+}
+document.getElementById('q').addEventListener('input',e=>render(e.target.value));
+render();
+</script>
+</body>
+</html>
